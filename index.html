@@ -30,6 +30,7 @@
 <button id="start">Activer caméra arrière</button>
 <video id="camera" autoplay playsinline></video>
 <button id="capture">📸 Prendre une photo</button>
+<button id="upload">Envoyer sur OneDrive</button>
 
 <table>
 <thead>
@@ -138,6 +139,12 @@ document.getElementById("export").onclick = () => {
 // ----- ONEDRIVE UPLOAD -----
 document.getElementById("upload").onclick = () => uploadToOneDrive();
 
+</script>
+<script src="onedrive-auth.js"></script>
+<script src="onedrive-upload.js"></script>
+
+<script>
+document.getElementById("upload").onclick = () => uploadToOneDrive();
 </script>
 
 </body>
