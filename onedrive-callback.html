@@ -1,52 +1,19 @@
 <!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Connexion OneDrive…</title>
-</head>
+<html>
 <body>
-    Traitement de la connexion…
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
 
-    <script src="config.js"></script>
-
-    <script>
-    async function handleCallback() {
-
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
-
-        if (!code) {
-            document.body.innerHTML = "Erreur : aucun code reçu.";
-            return;
-        }
-
-        const verifier = localStorage.getItem("pkce_verifier");
-
-        const body =
-            `client_id=${ONEDRIVE_CONFIG.clientId}` +
-            `&grant_type=authorization_code` +
-            `&code=${code}` +
-            `&redirect_uri=${encodeURIComponent(ONEDRIVE_CONFIG.redirectUri)}` +
-            `&code_verifier=${verifier}`;
-
-        const resp = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body
-        });
-
-        const data = await resp.json();
-
-        if (data.access_token) {
-            localStorage.setItem("onedrive_token", data.access_token);
-            document.body.innerHTML = "OK — Vous pouvez fermer cette fenêtre.";
-        } else {
-            document.body.innerText =
-                "Erreur Microsoft :\n\n" + JSON.stringify(data, null, 4);
-        }
+    if (!code) {
+        document.write("Erreur : aucun code reçu.");
+        throw new Error("Missing code");
     }
 
-    handleCallback();
-    </script>
+    localStorage.setItem("onedrive_code", code);
+
+    document.write("OK — Vous pouvez fermer cette fenêtre.");
+    window.close();
+</script>
 </body>
 </html>
