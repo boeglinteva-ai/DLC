@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Padova DLC PRO</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#ffffff" />
+
+  <link rel="icon" href="Logo-DLC.png" />
+  <link rel="apple-touch-icon" href="Logo-DLC.png" />
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.0.0/dist/tesseract.min.js"></script>
+
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; }
+    video { width: 100%; max-width: 420px; border-radius: 12px; margin-top: 20px; }
+    button { margin-top: 20px; padding: 12px 22px; font-size: 18px; border-radius: 10px; border: none; cursor: pointer; }
+    table { border-collapse: collapse; margin-top: 20px; width: 95%; text-align: center; }
+    th, td { border: 1px solid #ccc; padding: 8px 10px; }
+    td img { width: 140px; border-radius: 10px; }
+  </style>
+</head>
+
+<body>
+<h1>Padova DLC PRO</h1>
+<img src="Logo-DLC.png" style="width:150px; margin-top:10px;">
+
+<button id="start">Activer la caméra arrière</button>
+<video id="camera" autoplay playsinline></video>
+
+<button id="capture">📸 Prendre une photo</button>
+
+<table id="photosTable">
+<thead>
+<tr>
+  <th>Photo</th>
+  <th>Date / Heure</th>
+  <th>OCR</th>
+  <th>DLC détectée</th>
+  <th>Actions</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<button id="exportCsv">Exporter CSV</button>
+
+<script>
+let stream;
+const video = document.getElementById("camera");
+const tableBody = document.querySelector("#photosTable tbody");
+const shutter = new Audio("https://actions.google.com/sounds/v1/camera/camera_click.ogg");
+
+// ---- Activer caméra arrière ----
+document.getElementById("start").onclick = async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { exact: "environment" } }
+    });
+  } catch(e) {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    });
+  }
+  video.srcObject = stream;
+};
+
+// ---- Capture photo + OCR ----
+document.getElementById("capture").onclick = async () => {
+  if (!stream) return alert("Caméra non prête");
+
+  const track = stream.getVideoTracks()[0];
+  const imageCapture = new ImageCapture(track);
+  const bitmap = await imageCapture.grabFrame();
+
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+
+  ctx.filter = "grayscale(100%) contrast(180%) brightness(120%)";
+  ctx.drawImage(bitmap, 0, 0);
+
+  shutter.play();
+
+  const imgURL = canvas.toDataURL("image/png");
+  const now = new Date().toLocaleString();
+
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td><img src="${imgURL}"></td>
+    <td>${now}</td>
+    <td>Analyse...</td>
+    <td>Recherche...</td>
+    <td><button class="delBtn">🗑</button></td>`;
+  tableBody.appendChild(row);
+
+  processOCR(canvas, row);
+};
+
+// ---- OCR Ultra PRO ----
+async function processOCR(canvas, row) {
+  try {
+    const result = await Tesseract.recognize(canvas, "fra");
+    let text = result.data.text || "";
+
+    text = text
+      .replace(/[^0-9A-Za-z .:\/-]/g, " ")
+      .replace(/  +/g, " ")
+      .trim();
+
+    row.children[2].innerText = text;
+
+    const pattern = new RegExp("[0-9][0-9][ .:-][0-9][0-9][ .:-][0-9][0-9][0-9][0-9]?");
+    const match = text.match(pattern);
+
+    let dlc = "Aucune date trouvée";
+    if (match) {
+      dlc = match[0]
+        .replace(/[ .:-]/g, "/")
+        .replace(/\/+/g, "/");
+    }
+
+    row.children[3].innerText = dlc;
+
+    save();
+  } catch(e) {
+    row.children[2].innerText = "Erreur OCR";
+  }
+}
+
+// ---- Suppression ligne ----
+tableBody.addEventListener("click", e => {
+  if (e.target.classList.contains("delBtn")) {
+    if (!confirm("Supprimer cette ligne ?")) return;
+    e.target.closest("tr").remove();
+    save();
+  }
+});
+
+// ---- Sauvegarde locale ----
+function save() {
+  const rows = [...tableBody.querySelectorAll("tr")].map(r => ({
+    img: r.children[0].querySelector("img").src,
+    date: r.children[1].innerText,
+    ocr: r.children[2].innerText,
+    dlc: r.children[3].innerText
+  }));
+  localStorage.setItem("padovaDLC", JSON.stringify(rows));
+}
+
+function load() {
+  const data = JSON.parse(localStorage.getItem("padovaDLC") || "[]");
+  data.forEach(item => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><img src="${item.img}"></td>
+      <td>${item.date}</td>
+      <td>${item.ocr}</td>
+      <td>${item.dlc}</td>
+      <td><button class="delBtn">🗑</button></td>`;
+    tableBody.appendChild(row);
+  });
+}
+load();
+
+// ---- Export CSV ----
+document.getElementById("exportCsv").onclick = () => {
+  let csv = "Photo;Date;OCR;DLC\n";
+  [...tableBody.querySelectorAll("tr")].forEach(r => {
+    csv += `image;${r.children[1].innerText};${r.children[2].innerText};${r.children[3].innerText}\n`;
+  });
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "padova_dlc.csv";
+  a.click();
+};
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+</script>
+
+</body>
+</html>
