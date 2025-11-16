@@ -1,7 +1,7 @@
 // REMPLACE ces valeurs par TES clés (ne les partage jamais)
-const CLIENT_ID = "TON_CLIENT_ID";
-const TENANT_ID = "TON_TENANT_ID";
-const CLIENT_SECRET = "TON_CLIENT_SECRET";
+const CLIENT_ID = "4c6a4fb0-1ce2-4ad8-a5a1-cb7a0b42b5db";
+const TENANT_ID = "e84eeda3-e050-4237-83c3-236b52ee5fc1";
+const CLIENT_SECRET = "bfb8Q~9fBc3igNpa1q-5BEafynwkWQHFxY39xalp";
 
 // ===== NE RIEN MODIFIER CI-DESSOUS =====
 
