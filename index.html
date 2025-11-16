@@ -1,36 +1,35 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Padova DLC PRO</title>
 
-  <link rel="manifest" href="manifest.json" />
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#ffffff">
-
-  <link rel="icon" href="Logo-DLC.png" />
-  <link rel="apple-touch-icon" href="Logo-DLC.png" />
+  <link rel="icon" href="Logo-DLC.png">
+  <link rel="apple-touch-icon" href="Logo-DLC.png">
 
   <style>
-    body { font-family: Arial; margin: 0; padding: 0; text-align: center; }
-    video { width: 95%; max-width: 420px; margin-top: 20px; border-radius: 12px; }
-    button { padding: 12px 22px; font-size: 18px; border: none; border-radius: 10px; margin-top: 15px; cursor: pointer; }
-    table { width: 95%; margin-top: 25px; border-collapse: collapse; }
-    th, td { padding: 10px; border: 1px solid #ccc; }
-    img { width: 140px; border-radius: 8px; }
+    body { font-family: sans-serif; text-align: center; }
+    video { width: 90%; max-width: 420px; margin-top: 20px; }
+    table { width: 95%; margin: 20px auto; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    td img { width: 120px; }
+    button { padding: 12px 20px; margin: 10px; }
   </style>
 </head>
-
 <body>
 
 <h1>Padova DLC PRO</h1>
-<img src="Logo-DLC.png" alt="Logo" width="140">
+<img src="Logo-DLC.png" width="150">
 
 <button id="start">Activer caméra arrière</button>
 <video id="camera" autoplay playsinline></video>
+
 <button id="capture">📸 Prendre une photo</button>
-<button id="upload">Envoyer sur OneDrive</button>
+<button id="export">Exporter CSV</button>
+<button id="upload">📤 Envoyer vers OneDrive</button>
 
 <table>
 <thead>
@@ -38,113 +37,82 @@
   <th>Photo</th>
   <th>Date/Heure</th>
   <th>OCR</th>
-  <th>DLC</th>
-  <th>Actions</th>
+  <th>DLC détectée</th>
 </tr>
 </thead>
-<tbody id="photosBody"></tbody>
+<tbody id="photos"></tbody>
 </table>
 
-<button id="export">Exporter en CSV</button>
-<button id="upload">Envoyer sur OneDrive</button>
-
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2/dist/tesseract.min.js"></script>
+<script src="config.js"></script>
 <script src="onedrive-auth.js"></script>
 <script src="onedrive-upload.js"></script>
 
 <script>
 const startBtn = document.getElementById("start");
 const captureBtn = document.getElementById("capture");
-const video = document.getElementById("camera");
-const tableBody = document.getElementById("photosBody");
+const table = document.getElementById("photos");
 let stream;
 
-// ----- CAMERA -----
+// Activation caméra
 startBtn.onclick = async () => {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-    video.srcObject = stream;
-  } catch (e) {
-    alert("Erreur caméra : " + e);
-  }
+    stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
+    });
+    document.getElementById("camera").srcObject = stream;
 };
 
-// ----- CAPTURE -----
+// Capture
 captureBtn.onclick = async () => {
-  if (!stream) return alert("Caméra non prête.");
+    const track = stream.getVideoTracks()[0];
+    const imageCapture = new ImageCapture(track);
+    const bitmap = await imageCapture.grabFrame();
 
-  const track = stream.getVideoTracks()[0];
-  const imageCapture = new ImageCapture(track);
-  const bitmap = await imageCapture.grabFrame();
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
 
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(bitmap, 0, 0);
+    let url = canvas.toDataURL("image/png");
 
-  const imgURL = canvas.toDataURL("image/png");
-  const now = new Date().toLocaleString();
-  const row = document.createElement("tr");
+    let now = new Date().toLocaleString();
+    let row = document.createElement("tr");
+    row.innerHTML = `<td><img src="${url}"></td><td>${now}</td><td>Analyse...</td><td>Recherche...</td>`;
+    table.appendChild(row);
 
-  row.innerHTML = `
-    <td><img src="${imgURL}"></td>
-    <td>${now}</td>
-    <td>Analyse...</td>
-    <td>Recherche...</td>
-    <td><button class="del">🗑</button></td>
-  `;
-  tableBody.appendChild(row);
-
-  doOCR(canvas, row);
-};
-
-// ----- OCR ULTRA PRO -----
-async function doOCR(canvas, row) {
-  try {
+    // OCR Ultra PRO
     const result = await Tesseract.recognize(canvas, "fra");
-    let text = result.data.text || "";
-    text = text.replace(/[^0-9A-Za-z.\/:-]/g, " ");
+    let text = result.data.text.replace(/\s+/g, " ");
 
     row.children[2].innerText = text;
 
-    const match = text.match(/[0-9]{2}[\/\-. ][0-9]{2}[\/\-. ][0-9]{2,4}/);
-    row.children[3].innerText = match ? match[0].replace(/[\-. ]/g, "/") : "Aucune date trouvée";
+    // Détection de date ultra avancée
+    const regex = /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/g;
+    const match = text.match(regex);
 
-  } catch {
-    row.children[2].innerText = "Erreur OCR";
-  }
-}
-
-// ----- SUPPRESSION -----
-tableBody.onclick = e => {
-  if (e.target.classList.contains("del")) e.target.closest("tr").remove();
+    row.children[3].innerText = match ? match[0] : "Aucune date trouvée";
 };
 
-// ----- EXPORT CSV -----
+// Export CSV
 document.getElementById("export").onclick = () => {
-  let csv = "Photo;Date;OCR;DLC\n";
+    let csv = "Photo;Date;OCR;DLC\n";
+    [...table.querySelectorAll("tr")].forEach(r => {
+        csv += `image;${r.children[1].innerText};${r.children[2].innerText};${r.children[3].innerText}\n`;
+    });
 
-  [...tableBody.querySelectorAll("tr")].forEach(r => {
-    csv += `image;${r.children[1].innerText};${r.children[2].innerText};${r.children[3].innerText}\n`;
-  });
-
-  const blob = new Blob([csv], { type: "text/csv" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "padova_dlc.csv";
-  a.click();
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "padova_dlc.csv";
+    a.click();
 };
 
-// ----- ONEDRIVE UPLOAD -----
-document.getElementById("upload").onclick = () => uploadToOneDrive();
-
-</script>
-<script src="onedrive-auth.js"></script>
-<script src="onedrive-upload.js"></script>
-
-<script>
-document.getElementById("upload").onclick = () => uploadToOneDrive();
+// Upload OneDrive
+document.getElementById("upload").onclick = async () => {
+    await uploadToOneDrive(table);
+    alert("Envoyé vers OneDrive !");
+};
 </script>
 
 </body>
