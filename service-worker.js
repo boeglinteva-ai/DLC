@@ -1,13 +1,12 @@
 self.addEventListener("install", e => {
   e.waitUntil(
-    caches.open("padova-v1").then(cache =>
-      cache.addAll([
-        "/",
+    caches.open("padova-v1").then(cache => {
+      return cache.addAll([
         "index.html",
-        "Logo-DLC.png",
-        "manifest.json"
-      ])
-    )
+        "manifest.json",
+        "Logo-DLC.png"
+      ]);
+    })
   );
 });
 
