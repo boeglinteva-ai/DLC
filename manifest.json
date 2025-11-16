@@ -1,7 +1,7 @@
 {
   "name": "Padova DLC PRO",
-  "short_name": "DLC PRO",
-  "start_url": "/",
+  "short_name": "DLC",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
