@@ -1,17 +1,18 @@
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open('padova-v1').then(cache => {
-      return cache.addAll([
-        'index.html',
-        'manifest.json',
-        'Logo-DLC.png'
-      ]);
-    })
+self.addEventListener("install", e => {
+  e.waitUntil(
+    caches.open("padova-v1").then(cache =>
+      cache.addAll([
+        "/",
+        "index.html",
+        "Logo-DLC.png",
+        "manifest.json"
+      ])
+    )
   );
 });
 
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request).then(resp => resp || fetch(event.request))
+self.addEventListener("fetch", e => {
+  e.respondWith(
+    caches.match(e.request).then(r => r || fetch(e.request))
   );
 });
