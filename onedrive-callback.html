@@ -1,35 +1,93 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Connexion OneDrive…</title>
-<style>
-    body { font-family: Arial; padding: 30px; }
-</style>
+  <meta charset="UTF-8">
+  <title>Padova DLC – OneDrive callback</title>
 </head>
 <body>
-<p>Connexion réussie. Retour à Padova DLC PRO…</p>
+  <p id="status">Traitement de la connexion OneDrive…</p>
 
-<script>
-// --- Extraction du code dans l'URL ---
-const params = new URLSearchParams(window.location.search);
-const code = params.get("code");
+  <!-- On réutilise ta config -->
+  <script src="config.js"></script>
 
-if (!code) {
-    document.body.innerHTML = "<p>Erreur : Aucun code reçu.</p>";
-} else {
-    // On sauvegarde le code pour onedrive-auth.js
-    localStorage.setItem("onedrive_code", code);
-}
+  <script>
+    (async function () {
+      const statusEl = document.getElementById("status");
 
-// --- Tentative fermeture fenêtre (PC / Android) ---
-window.close();
+      if (!window.ONEDRIVE_CONFIG) {
+        statusEl.textContent = "Erreur : configuration OneDrive manquante.";
+        return;
+      }
 
-// --- Safari / iPhone bloque window.close() -> redirection automatique ---
-setTimeout(() => {
-    window.location.href = "https://boeglinteva-ai.github.io/DLC";
-}, 100);
-</script>
+      // Récupère le code dans l'URL
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const error = params.get("error");
 
+      if (error) {
+        statusEl.textContent = "Erreur Microsoft : " + error;
+        return;
+      }
+
+      if (!code) {
+        statusEl.textContent = "Erreur : aucun code de connexion trouvé.";
+        return;
+      }
+
+      const verifier = sessionStorage.getItem("onedrive_pkce_verifier");
+      if (!verifier) {
+        statusEl.textContent = "Erreur : code_verifier PKCE introuvable (session expirée ?).";
+        return;
+      }
+
+      try {
+        // Prépare la requête token
+        const body = new URLSearchParams();
+        body.append("client_id", ONEDRIVE_CONFIG.clientId);
+        body.append("scope", ONEDRIVE_CONFIG.scopes);
+        body.append("code", code);
+        body.append("redirect_uri", ONEDRIVE_CONFIG.redirectUri);
+        body.append("grant_type", "authorization_code");
+        body.append("code_verifier", verifier);
+
+        const resp = await fetch(
+          "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body
+          }
+        );
+
+        const data = await resp.json();
+
+        if (data.error) {
+          console.error("Token error:", data);
+          statusEl.textContent =
+            "Erreur Microsoft : " + (data.error_description || data.error);
+          return;
+        }
+
+        // 👉 IMPORTANT : on stocke JUSTE l'access_token,
+        // comme avant, pour que ton upload actuel continue à fonctionner.
+        localStorage.setItem("onedrive_token", data.access_token);
+
+        // Nettoie le verifier
+        sessionStorage.removeItem("onedrive_pkce_verifier");
+
+        statusEl.textContent = "OK — Vous pouvez fermer cette fenêtre.";
+
+        // On renvoie automatiquement vers l'app après un petit délai
+        setTimeout(() => {
+          window.location.href = "index.html";
+        }, 1000);
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = "Erreur réseau lors de la récupération du token.";
+      }
+    })();
+  </script>
 </body>
 </html>
