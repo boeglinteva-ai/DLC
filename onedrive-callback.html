@@ -1,19 +1,35 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Connexion OneDrive…</title>
+<style>
+    body { font-family: Arial; padding: 30px; }
+</style>
+</head>
 <body>
+<p>Connexion réussie. Retour à Padova DLC PRO…</p>
+
 <script>
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
+// --- Extraction du code dans l'URL ---
+const params = new URLSearchParams(window.location.search);
+const code = params.get("code");
 
-    if (!code) {
-        document.write("Erreur : aucun code reçu.");
-        throw new Error("Missing code");
-    }
-
+if (!code) {
+    document.body.innerHTML = "<p>Erreur : Aucun code reçu.</p>";
+} else {
+    // On sauvegarde le code pour onedrive-auth.js
     localStorage.setItem("onedrive_code", code);
+}
 
-    document.write("OK — Vous pouvez fermer cette fenêtre.");
-    window.close();
+// --- Tentative fermeture fenêtre (PC / Android) ---
+window.close();
+
+// --- Safari / iPhone bloque window.close() -> redirection automatique ---
+setTimeout(() => {
+    window.location.href = "https://boeglinteva-ai.github.io/DLC";
+}, 100);
 </script>
+
 </body>
 </html>
