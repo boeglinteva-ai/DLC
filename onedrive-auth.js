@@ -51,3 +51,11 @@ async function uploadToOneDrive(table) {
 
     alert("Export OneDrive réussi !");
 }
+function testToken() {
+    const token = localStorage.getItem("onedrive_token");
+    if (token) {
+        alert("TOKEN OK : " + token.substring(0, 40) + "...");
+    } else {
+        alert("❌ Aucun token OneDrive trouvé");
+    }
+}
