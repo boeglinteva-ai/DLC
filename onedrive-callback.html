@@ -7,8 +7,11 @@
 <body>
   <p id="status">Traitement de la connexion OneDrive…</p>
 
-  <!-- On réutilise ta config -->
+  <!-- 🔥 OBLIGATOIRE : charger la config -->
   <script src="config.js"></script>
+
+  <!-- 🔥 OBLIGATOIRE : le code PKCE pour générer/verifier le code_verifier -->
+  <script src="oAuth-pkce.js"></script>
 
   <script>
     (async function () {
@@ -19,7 +22,7 @@
         return;
       }
 
-      // Récupère le code dans l'URL
+      // Récupère le code d’autorisation
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
       const error = params.get("error");
@@ -36,12 +39,12 @@
 
       const verifier = sessionStorage.getItem("onedrive_pkce_verifier");
       if (!verifier) {
-        statusEl.textContent = "Erreur : code_verifier PKCE introuvable (session expirée ?).";
+        statusEl.textContent =
+          "Erreur : code_verifier PKCE introuvable (session expirée ?).";
         return;
       }
 
       try {
-        // Prépare la requête token
         const body = new URLSearchParams();
         body.append("client_id", ONEDRIVE_CONFIG.clientId);
         body.append("scope", ONEDRIVE_CONFIG.scopes);
@@ -54,9 +57,7 @@
           "https://login.microsoftonline.com/common/oauth2/v2.0/token",
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded"
-            },
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body
           }
         );
@@ -70,19 +71,19 @@
           return;
         }
 
-        // 👉 IMPORTANT : on stocke JUSTE l'access_token,
-        // comme avant, pour que ton upload actuel continue à fonctionner.
+        // Sauvegarde du token dans le localStorage
         localStorage.setItem("onedrive_token", data.access_token);
 
-        // Nettoie le verifier
+        // Nettoyage
         sessionStorage.removeItem("onedrive_pkce_verifier");
 
         statusEl.textContent = "OK — Vous pouvez fermer cette fenêtre.";
 
-        // On renvoie automatiquement vers l'app après un petit délai
+        // Retour automatique vers l'app
         setTimeout(() => {
           window.location.href = "index.html";
         }, 1000);
+
       } catch (e) {
         console.error(e);
         statusEl.textContent = "Erreur réseau lors de la récupération du token.";
